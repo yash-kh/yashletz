@@ -70,14 +70,23 @@ export default function WalletDashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const tempMnemonic = sessionStorage.getItem("mnemonic");
-    if (tempMnemonic) {
-      setMnemonic(tempMnemonic);
+    const tempMnemonic = localStorage.getItem("mnemonic");
+    if (!tempMnemonic) {
+      router.push("/");
+      return;
+    }
+    setMnemonic(tempMnemonic);
+    const walletTypeList = JSON.parse(
+      localStorage.getItem("walletTypeList") || "[]"
+    );
+    if (walletTypeList.length > 0 && walletTypeList[0].wallets.length > 0) {
+      setWalletTypeList(walletTypeList);
+      setSelectedWalletType(walletTypeList[0]);
+      setSelectedWallet(walletTypeList[0].wallets[0]);
+    } else {
       generateEthereumWallets(tempMnemonic);
       let solanaWallets = generateSolanaWallets(tempMnemonic);
       setSelectedWallet(solanaWallets);
-    } else {
-      router.push("/");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -138,6 +147,7 @@ export default function WalletDashboard() {
     });
     setWalletTypeList((old) => {
       old[1].wallets = ethereumWallets;
+      saveWalletTypeList(old);
       return old;
     });
     return ethereumWallets[ethereumWallets.length - 1];
@@ -158,6 +168,7 @@ export default function WalletDashboard() {
     });
     setWalletTypeList((old) => {
       old[0].wallets = solanaWallets;
+      saveWalletTypeList(old);
       return old;
     });
     return solanaWallets[solanaWallets.length - 1];
@@ -166,6 +177,10 @@ export default function WalletDashboard() {
   const generatePublicKeyView = useCallback((key: string) => {
     return key.slice(0, 4) + "..." + key.slice(-4);
   }, []);
+
+  function saveWalletTypeList(walletTypeList: WalletType[]) {
+    localStorage.setItem("walletTypeList", JSON.stringify(walletTypeList));
+  }
 
   return (
     <>
@@ -250,6 +265,19 @@ export default function WalletDashboard() {
                 </div>
               </DialogContent>
             </Dialog>
+            <Button
+              className="ml-3"
+              variant="destructive"
+              onClick={() => {
+                if (confirm("Are you sure you want to logout?")) {
+                  localStorage.removeItem("walletTypeList");
+                  localStorage.removeItem("mnemonic");
+                  router.push("/");
+                }
+              }}
+            >
+              <i className="fa-solid fa-power-off"></i>
+            </Button>
           </div>
         </div>
         {selectedWallet ? (
