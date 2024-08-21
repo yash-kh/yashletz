@@ -29,12 +29,7 @@ export default function Home() {
 
   function generateStarterWallet() {
     sessionStorage.setItem("mnemonic", mnemonic);
-    router.push('/wallet');
-    // solana
-    // generateEthereumWallets();
-
-    // ethereum
-    // generateSolanaWallets();
+    router.push("/wallet");
   }
 
   function generateSecurityPhrases() {

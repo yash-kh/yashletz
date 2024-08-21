@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { derivePath } from "ed25519-hd-key";
 import { Wallet } from "ethers";
 import { HDNodeWallet } from "ethers";
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DialogClose } from "@radix-ui/react-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/use-toast";
 
 interface LocalWallet {
   name: string;
@@ -65,6 +66,8 @@ export default function WalletDashboard() {
   const [selectedWallet, setSelectedWallet] = useState<LocalWallet | null>(
     null
   );
+  const [fetchingBalance, setFetchingBalance] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const tempMnemonic = sessionStorage.getItem("mnemonic");
@@ -78,6 +81,45 @@ export default function WalletDashboard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    fetchWalletBalance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWallet?.publickey]);
+
+  async function fetchWalletBalance() {
+    if (selectedWallet && selectedWalletType) {
+      setFetchingBalance(true);
+
+      try {
+        const response = await fetch("/api/balance", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            selectedWallet: selectedWallet.publickey,
+            selectedWalletType: selectedWalletType.name,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setSelectedWallet((old) => {
+            if (!old) return old;
+            return { ...old, balance: data.balance };
+          });
+        } else {
+          console.error(data.error);
+        }
+      } catch (error) {
+        console.error("Failed to fetch balance:", error);
+      } finally {
+        setFetchingBalance(false);
+      }
+    }
+  }
 
   function generateEthereumWallets(mnemonic: string) {
     const ethereumWallets = JSON.parse(
@@ -121,9 +163,9 @@ export default function WalletDashboard() {
     return solanaWallets[solanaWallets.length - 1];
   }
 
-  function generatePublicKeyView(key: string) {
+  const generatePublicKeyView = useCallback((key: string) => {
     return key.slice(0, 4) + "..." + key.slice(-4);
-  }
+  }, []);
 
   return (
     <>
@@ -212,10 +254,32 @@ export default function WalletDashboard() {
         </div>
         {selectedWallet ? (
           <div>
-            <h1>
+            <h1 className="text-lg">
               {selectedWallet.name}
               {" : "}
               {generatePublicKeyView(selectedWallet.publickey)}
+              <i
+                className="fa-solid fa-copy hover:cursor-pointer ml-3 hover:text-green-500"
+                onClick={() => {
+                  navigator.clipboard
+                    .writeText(selectedWallet.publickey)
+                    .then(() => {
+                      toast({
+                        title: "Copied",
+                        description: "Public key copied to clipboard",
+                        duration: 2000,
+                      });
+                    });
+                }}
+              ></i>
+            </h1>
+            <h1 className="text-lg">
+              {fetchingBalance ? (
+                <Skeleton className="inline-block h-4 w-[50px] bg-black" />
+              ) : (
+                selectedWallet.balance
+              )}
+              {" " + selectedWalletType.symbol}
             </h1>
           </div>
         ) : (
